@@ -56,6 +56,9 @@ class Data():
 
         targets = df[df["player_to_predict"] == True].copy()
 
+        df["target_dx"] = df["ball_land_x"] - df["x"]
+        df["target_dy"] = df["ball_land_y"] - df["y"]
+
         exclude_cols = [
             "player_name", "player_position", "player_role", "player_side", "play_direction",
             "player_height", "player_birth_date",
@@ -66,4 +69,6 @@ class Data():
 
         feature_cols = [c for c in self.data.columns if c not in exclude_cols]
 
-        self.preprocessed = self.data[feature_cols]
+        self.feature_cols = feature_cols
+
+        self.preprocessed = df
