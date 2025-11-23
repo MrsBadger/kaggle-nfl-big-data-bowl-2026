@@ -120,5 +120,30 @@ dmypy.json
 #Pycharm IDE
 .idea
 
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.fseventsd
+.Spotlight-V100
+.Trashes
+.TemporaryItems
+
+# Windows system files
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
 # project specific ignores
 /train
