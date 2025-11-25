@@ -3,6 +3,27 @@ import os
 import glob
 import re
 
+def create_training_rows(input_df: pd.DataFrame, output_df: pd.DataFrame) -> pd.DataFrame:
+    agg = (
+        input_df.sort_values(["game_id","play_id","nfl_id","frame_id"])
+                .groupby(["game_id","play_id","nfl_id"], as_index=False)
+                .tail(1)
+                .reset_index(drop=True)
+                .rename(columns={"frame_id":"last_frame_id"})
+    )
+
+    out = output_df.copy()
+    out = out.rename(columns={"x":"target_x","y":"target_y"})
+    out["id"] = (
+        out["game_id"].astype(str) + "_" +
+        out["play_id"].astype(str) + "_" +
+        out["nfl_id"].astype(str) + "_" +
+        out["frame_id"].astype(str)
+    )
+    m = out.merge(agg, on=["game_id","play_id","nfl_id"], how="left", suffixes=("","_last"))
+    m["delta_frames"] = (m["frame_id"] - m["last_frame_id"]).clip(lower=0).astype(float)
+    m["delta_t"] = m["delta_frames"] / 10.0
+    return m
 
 class Data():
     def __init__(self, path=""):
@@ -26,7 +47,11 @@ class Data():
             OUTPUT_DFS.append(df_out)
 
             print(f"{f_in}: {df_in.shape}, {f_out}: {df_out.shape}, week: {week}")
-        df = pd.concat(INPUT_DFS, ignore_index=True)
+        input_df = pd.concat(INPUT_DFS, ignore_index=True)
+        output_df = pd.concat(OUTPUT_DFS, ignore_index=True)
+
+        
+        df = create_training_rows(input_df, output_df)
 
         self.data = df
 
@@ -54,10 +79,10 @@ class Data():
 
         df = pd.concat([right_eda, left_eda], ignore_index=True)
 
-        targets = df[df["player_to_predict"] == True].copy()
+        #targets = df[df["player_to_predict"] == True].copy()
 
-        df["target_dx"] = df["ball_land_x"] - df["x"]
-        df["target_dy"] = df["ball_land_y"] - df["y"]
+        #df["target_dx"] = df["ball_land_x"] - df["x"]
+        #df["target_dy"] = df["ball_land_y"] - df["y"]
 
         exclude_cols = [
             "player_name", "player_position", "player_role", "player_side", "play_direction",
@@ -72,3 +97,30 @@ class Data():
         self.feature_cols = feature_cols
 
         self.preprocessed = df
+
+
+
+class PredictionSequencer():
+    def __init__(self, model, features = []):
+        self.model = model
+        self.features = features
+        self.predictions = []
+        self.inputs = []
+
+    def process_prediction_output(self, prediction, data):
+        process = "include preprocessing from maybe data class?"
+        return "processed new row for prediciton in next step"
+
+    def predict(self, start_dpoint, n):
+        self.predictions = []
+        self.inputs = []
+        for i in range(n):
+            if n==0:
+                prediction = self.model.predict(start_dpoint)
+            else:
+                prediction = self.model.predict(self.inputs[-1])
+            processed = self.process_prediction_output(prediction, prediction, start_dpoint)
+            self.inputs.append(processed)
+        return self.predictions, self.inputs
+
+    
