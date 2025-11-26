@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import glob
 import re
+import numpy as np
 
 def create_training_rows(input_df: pd.DataFrame, output_df: pd.DataFrame) -> pd.DataFrame:
     agg = (
@@ -24,6 +25,9 @@ def create_training_rows(input_df: pd.DataFrame, output_df: pd.DataFrame) -> pd.
     m["delta_frames"] = (m["frame_id"] - m["last_frame_id"]).clip(lower=0).astype(float)
     m["delta_t"] = m["delta_frames"] / 10.0
     return m
+
+
+
 
 class Data():
     def __init__(self, path=""):
@@ -102,16 +106,63 @@ class Data():
 
 class PredictionSequencer():
     def __init__(self, model, features = []):
+        """Idea is to take a model here and then to allow it to be used consecutively,
+        takes a model and the input features, other than that the class has the attributes
+        predictions, containing all teh predictions (total n), and the inputs, corresponding
+        to the submitted and then created input features."""
         self.model = model
         self.features = features
         self.predictions = []
         self.inputs = []
 
-    def process_prediction_output(self, prediction, data):
+    def create_new_data(self, start_dpoint, prediction, data):
+        """Here the predicted next point should be used to calculate
+        the next input to the model. The significance being that the
+        new X and Y values should correspond to a new observation."""
         process = "include preprocessing from maybe data class?"
-        return "processed new row for prediciton in next step"
+        previous = data[(data["game_id"] == start_dpoint["game_if"]) & \
+                        (data["play_id"] == start_dpoint["play_if"]) & \
+                        data["nfl_id"] == start_dpoint["nfl_if"]]
+        previous_f = previous.sort_values("frame_id").iloc[-1]
+        new_dpoint = previous_f.copy()
 
-    def predict(self, start_dpoint, n):
+        columns_calculated = ["x", "y", "s", "a", "o", "dir"]
+        x1 = prediction[0]
+        y1 = prediction[1]
+
+        x0 = previous_f['x']
+        y0 = previous_f['y']
+
+        dx = x1 - x0
+        dy = y1 - y0
+        t = 0.1
+        # not sure about the orientation calcualtion here
+        o = (np.degrees(np.arctan2(dy, dx)) + 360) % 360
+
+        s = np.sqrt(dx**2 + dy**2) / t
+
+        s0 = previous_f["s"]
+        a = (s - s0) / t
+        dir1 = np.degrees(np.arctan2(dy, dx))
+        new_dpoint["x"] = x1
+        new_dpoint["y"] = y1
+        new_dpoint["s"] = s
+        new_dpoint["a"] = a
+        new_dpoint["o"] = o
+        new_dpoint["dir"] = dir1
+            
+        return new_dpoint
+    
+    def feature_engineering(self, processed_datapoint, data):
+        """Here goes just the feature engineering."""
+
+        return 
+
+    def predict(self, start_dpoint, data, n):
+        """Taking a starting point start_dpoint, we make n predictions
+        and using a some starting data and logic defined in process_prediciton output,
+        we just call model.predict() in the familiar sklearn syntax to make the desred
+        number of predictions."""
         self.predictions = []
         self.inputs = []
         for i in range(n):
@@ -119,7 +170,8 @@ class PredictionSequencer():
                 prediction = self.model.predict(start_dpoint)
             else:
                 prediction = self.model.predict(self.inputs[-1])
-            processed = self.process_prediction_output(prediction, prediction, start_dpoint)
+            new_datapoint = self.process_prediction_output(prediction, start_dpoint, data)
+            processed = self.feature_engineering(new_datapoint)
             self.inputs.append(processed)
         return self.predictions, self.inputs
 
