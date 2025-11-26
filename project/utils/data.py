@@ -114,15 +114,16 @@ class PredictionSequencer():
         self.features = features
         self.predictions = []
         self.inputs = []
+        self.datas = []
 
     def create_new_data(self, start_dpoint, prediction, data):
         """Here the predicted next point should be used to calculate
         the next input to the model. The significance being that the
         new X and Y values should correspond to a new observation."""
         process = "include preprocessing from maybe data class?"
-        previous = data[(data["game_id"] == start_dpoint["game_if"]) & \
-                        (data["play_id"] == start_dpoint["play_if"]) & \
-                        data["nfl_id"] == start_dpoint["nfl_if"]]
+        previous = data[(data["game_id"] == start_dpoint["game_id"]) & \
+                        (data["play_id"] == start_dpoint["play_id"]) & \
+                        (data["nfl_id"] == start_dpoint["nfl_id"])]
         previous_f = previous.sort_values("frame_id").iloc[-1]
         new_dpoint = previous_f.copy()
 
@@ -143,18 +144,37 @@ class PredictionSequencer():
 
         s0 = previous_f["s"]
         a = (s - s0) / t
-        dir1 = np.degrees(np.arctan2(dy, dx))
+        # direction just taken to be the same as the previous value
+        #dir1 = np.degrees(np.arctan2(dy, dx))
         new_dpoint["x"] = x1
         new_dpoint["y"] = y1
         new_dpoint["s"] = s
         new_dpoint["a"] = a
         new_dpoint["o"] = o
-        new_dpoint["dir"] = dir1
+        #new_dpoint["dir"] = dir1
+        new_dpoint["frame_id"] = new_dpoint["frame_id"] + 1
             
         return new_dpoint
     
-    def feature_engineering(self, processed_datapoint, data):
+    def feature_engineering(self, processed_datapoint, data, type="a"):
         """Here goes just the feature engineering."""
+
+        # Join previous datapoint to the data.
+        group_cols = ['game_id', 'play_id', 'nfl_id']
+        df = data.copy()
+        df = pd.concat([df, pd.DataFrame([processed_datapoint])], ignore_index=True)
+        
+
+        if type == "a":
+            group = df.groupby(group_cols)
+
+            for lag in [1, 2]:#, 3, 5]:
+                for c in ['x', 'y']:#, 'velocity_x', 'velocity_y', 's']:
+                    df[f"{c}_lag{lag}"] = group[c].shift(lag)
+
+            self.datas.append(df)
+            outp = df.iloc[-1]
+            return outp
 
         return 
 
@@ -166,13 +186,15 @@ class PredictionSequencer():
         self.predictions = []
         self.inputs = []
         for i in range(n):
-            if n==0:
+            if i==0:
                 prediction = self.model.predict(start_dpoint)
             else:
                 prediction = self.model.predict(self.inputs[-1])
-            new_datapoint = self.process_prediction_output(prediction, start_dpoint, data)
-            processed = self.feature_engineering(new_datapoint)
+            new_datapoint = self.create_new_data(self, start_dpoint, prediction, data)
+            
+            processed = self.feature_engineering(new_datapoint, data)
             self.inputs.append(processed)
+            self.predictions.append(prediction)
         return self.predictions, self.inputs
 
     
