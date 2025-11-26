@@ -76,7 +76,7 @@ class Data():
         left_eda["ball_land_x"] = X_LIMIT - left_eda["ball_land_x"]
         left_eda["ball_land_y"] = Y_LIMIT - left_eda["ball_land_y"]
 
-        # mirroring future positions for consistency
+        # mirroring the future positions for consistency
         if "target_x" in left_eda.columns:
             left_eda["target_x"] = X_LIMIT - left_eda["target_x"]
         if "target_y" in left_eda.columns:
