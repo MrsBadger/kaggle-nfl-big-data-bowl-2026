@@ -147,3 +147,4 @@ $RECYCLE.BIN/
 
 # project specific ignores
 /train
+/cache
